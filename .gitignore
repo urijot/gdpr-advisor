@@ -1,0 +1,25 @@
+# Python / Backend
+__pycache__/
+*.py[cod]
+.venv
+env/
+backend/uploads/
+
+# Node / Frontend
+node_modules/
+.svelte-kit/
+build/
+.npm
+
+# Mac OS
+.DS_Store
+
+# Environment variables
+.env
+
+# Docker & DB
+postgres_data/
+
+# IDE
+.vscode/
+.idea/
