@@ -4,7 +4,6 @@ python-multipart
 sqlalchemy
 psycopg2-binary
 pgvector
-openai
+google-genai
 langchain
 pypdf
-

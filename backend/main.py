@@ -1,6 +1,7 @@
 from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pypdf import PdfReader
+from google import genai
 import shutil
 import os
 
@@ -14,6 +15,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Geminiクライアントの設定
+client = None
+if "GEMINI_API_KEY" in os.environ:
+    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
 # アップロードされたファイルを保存するフォルダを作成
 UPLOAD_DIR = "uploads"
@@ -38,4 +44,17 @@ async def upload_file(file: UploadFile = File(...)):
     except Exception as e:
         text = f"エラー: テキストを抽出できませんでした ({str(e)})"
 
-    return {"filename": file.filename, "status": "success", "text": text}
+    # GeminiでGDPR分析を実行
+    analysis = ""
+    if text and not text.startswith("エラー") and client:
+        try:
+            # Gemini 1.5 Flash モデルを使用 (高速・安価・長文対応)
+            prompt = f"あなたはGDPR（EU一般データ保護規則）の専門家です。以下のドキュメントのリスクを日本語で簡潔に分析してください:\n\n{text[:50000]}" # Geminiならもっと長くてもOK
+            
+            # 新しいライブラリでの非同期呼び出し
+            response = await client.aio.models.generate_content(model='gemini-1.5-flash', contents=prompt)
+            analysis = response.text
+        except Exception as e:
+            analysis = f"AI分析エラー: APIキーが設定されていないか、エラーが発生しました ({str(e)})"
+
+    return {"filename": file.filename, "status": "success", "text": text, "analysis": analysis}
