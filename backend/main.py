@@ -55,7 +55,7 @@ async def upload_file(file: UploadFile = File(...)):
                 + text[:50000]
             )
             response = await gemini_client.aio.models.generate_content(
-                model="gemini-1.5-flash",
+                model="gemini-2.5-flash",
                 contents=prompt,
             )
             analysis = response.text
