@@ -7,54 +7,64 @@ import os
 
 app = FastAPI()
 
-# フロントエンド (http://localhost:5173) からのアクセスを許可
+# Allow requests from the frontend (http://localhost:5173)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 開発中は "*" (すべて許可) でOK
-    allow_credentials=True,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Geminiクライアントの設定
-client = None
-if "GEMINI_API_KEY" in os.environ:
-    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+# Configure Gemini client from environment variable GEMINI_API_KEY
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
-# アップロードされたファイルを保存するフォルダを作成
+# Create directory for uploaded files
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @app.get("/")
 def read_root():
-    return {"Hello": "GDPR App Backend is running!"}
+    return {"message": "GDPR App Backend is running!"}
 
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
     save_path = os.path.join(UPLOAD_DIR, file.filename)
     with open(save_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
-    
-    # PDFからテキストを抽出
+
+    # Extract text from PDF
     text = ""
     try:
         reader = PdfReader(save_path)
         for page in reader.pages:
             text += page.extract_text() + "\n"
     except Exception as e:
-        text = f"エラー: テキストを抽出できませんでした ({str(e)})"
+        text = f"Error: could not extract text ({str(e)})"
 
-    # GeminiでGDPR分析を実行
+    # Run GDPR analysis with Gemini
     analysis = ""
-    if text and not text.startswith("エラー") and client:
+    if not gemini_client:
+        analysis = "Error: GEMINI_API_KEY is not set. Check the environment variable."
+    elif text and not text.startswith("Error:"):
         try:
-            # Gemini 1.5 Flash モデルを使用 (高速・安価・長文対応)
-            prompt = f"あなたはGDPR（EU一般データ保護規則）の専門家です。以下のドキュメントのリスクを日本語で簡潔に分析してください:\n\n{text[:50000]}" # Geminiならもっと長くてもOK
-            
-            # 新しいライブラリでの非同期呼び出し
-            response = await client.aio.models.generate_content(model='gemini-1.5-flash', contents=prompt)
+            prompt = (
+                "You are a GDPR (General Data Protection Regulation) expert. "
+                "Analyze the following document and identify potential GDPR risks concisely in English:\n\n"
+                + text[:50000]
+            )
+            response = await gemini_client.aio.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=prompt,
+            )
             analysis = response.text
         except Exception as e:
-            analysis = f"AI分析エラー: APIキーが設定されていないか、エラーが発生しました ({str(e)})"
+            analysis = f"AI analysis error: {str(e)}"
 
-    return {"filename": file.filename, "status": "success", "text": text, "analysis": analysis}
+    return {
+        "filename": file.filename,
+        "status": "success",
+        "text": text,
+        "analysis": analysis,
+    }
