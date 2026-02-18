@@ -1,5 +1,6 @@
 from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from pypdf import PdfReader
 import shutil
 import os
 
@@ -27,4 +28,14 @@ async def upload_file(file: UploadFile = File(...)):
     save_path = os.path.join(UPLOAD_DIR, file.filename)
     with open(save_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
-    return {"filename": file.filename, "status": "success", "path": save_path}
+    
+    # PDFからテキストを抽出
+    text = ""
+    try:
+        reader = PdfReader(save_path)
+        for page in reader.pages:
+            text += page.extract_text() + "\n"
+    except Exception as e:
+        text = f"エラー: テキストを抽出できませんでした ({str(e)})"
+
+    return {"filename": file.filename, "status": "success", "text": text}

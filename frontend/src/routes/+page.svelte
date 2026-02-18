@@ -2,6 +2,7 @@
   let files: FileList;
   let message = "";
   let isUploading = false;
+  let extractedText = "";
 
   async function handleUpload() {
     if (!files || files.length === 0) {
@@ -11,6 +12,7 @@
 
     isUploading = true;
     message = "アップロード中...";
+    extractedText = "";
 
     const formData = new FormData();
     formData.append("file", files[0]);
@@ -25,6 +27,7 @@
       if (response.ok) {
         const data = await response.json();
         message = `成功！保存名: ${data.filename}`;
+        extractedText = data.text;
       } else {
         message = "エラーが発生しました";
       }
@@ -49,5 +52,12 @@
 
   {#if message}
     <p style="margin-top: 1rem; font-weight: bold; color: #333;">{message}</p>
+  {/if}
+
+  {#if extractedText}
+    <div style="margin-top: 2rem; padding: 1rem; background: #f5f5f5; border-radius: 4px; border: 1px solid #ddd;">
+      <h3>抽出されたテキスト:</h3>
+      <pre style="white-space: pre-wrap; font-family: monospace;">{extractedText}</pre>
+    </div>
   {/if}
 </main>
