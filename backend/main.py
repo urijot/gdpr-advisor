@@ -1,8 +1,18 @@
 from fastapi import FastAPI, File, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 import shutil
 import os
 
 app = FastAPI()
+
+# フロントエンド (http://localhost:5173) からのアクセスを許可
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # 開発中は "*" (すべて許可) でOK
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # アップロードされたファイルを保存するフォルダを作成
 UPLOAD_DIR = "uploads"
