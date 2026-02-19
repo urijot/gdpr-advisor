@@ -46,10 +46,6 @@
 			.filter((s) => s.heading || s.content);
 	}
 
-	function isExpanded(msgIdx: number, secIdx: number): boolean {
-		return expandedSections.has(`${msgIdx}-${secIdx}`);
-	}
-
 	function toggleSection(msgIdx: number, secIdx: number) {
 		const key = `${msgIdx}-${secIdx}`;
 		const next = new Set(expandedSections);
@@ -298,7 +294,8 @@
 											</div>
 										{:else}
 											<!-- Accordion section -->
-											<div class="section-card" class:open={isExpanded(msgIdx, secIdx)}>
+											{@const key = `${msgIdx}-${secIdx}`}
+										<div class="section-card" class:open={expandedSections.has(key)}>
 												<button
 													class="section-header"
 													on:click={() => toggleSection(msgIdx, secIdx)}
@@ -309,7 +306,7 @@
 													</div>
 													<svg
 														class="chevron"
-														class:open={isExpanded(msgIdx, secIdx)}
+														class:open={expandedSections.has(key)}
 														width="14"
 														height="14"
 														viewBox="0 0 24 24"
@@ -320,7 +317,7 @@
 														<polyline points="9 18 15 12 9 6" />
 													</svg>
 												</button>
-												{#if isExpanded(msgIdx, secIdx)}
+												{#if expandedSections.has(key)}
 													<div class="section-body">
 														<div class="prose">
 															{@html renderMarkdown(section.content)}
