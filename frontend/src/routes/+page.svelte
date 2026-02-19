@@ -1,15 +1,10 @@
 <script lang="ts">
 	import { marked } from 'marked';
-	import { tick, onMount } from 'svelte';
+	import { tick } from 'svelte';
 
 	let hasConsented = false;
 
-	onMount(() => {
-		hasConsented = localStorage.getItem('gdpr_advisor_consented') === 'true';
-	});
-
 	function giveConsent() {
-		localStorage.setItem('gdpr_advisor_consented', 'true');
 		hasConsented = true;
 	}
 
