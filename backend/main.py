@@ -94,12 +94,17 @@ async def get_advice(request: AdviceRequest):
         "Always remind the user that this is not legal advice.\n\n"
         f"RELEVANT GDPR ARTICLES:\n{context}\n\n"
         f"SERVICE IDEA:\n{request.idea}\n\n"
-        "Structure your response as:\n"
-        "1. Summary (1-2 sentences)\n"
-        "2. Potential GDPR concerns (bullet points)\n"
-        "3. Relevant articles\n"
-        "4. Recommendations\n"
-        "5. Disclaimer"
+        "Format your response in Markdown using the following ## headings exactly:\n"
+        "## Summary\n"
+        "(1-2 sentence overview)\n\n"
+        "## Potential GDPR Concerns\n"
+        "(bullet points)\n\n"
+        "## Relevant Articles\n"
+        "(which articles apply and why)\n\n"
+        "## Recommendations\n"
+        "(actionable steps)\n\n"
+        "## Disclaimer\n"
+        "(not legal advice reminder)"
     )
 
     response = await gemini_client.aio.models.generate_content(
