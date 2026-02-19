@@ -53,7 +53,7 @@
       placeholder="e.g. An app that collects users' location data in real time and shares it with third-party advertisers..."
       rows={6}
       style="width: 100%; padding: 0.75rem; font-size: 1rem; border: 1px solid #ccc; border-radius: 6px; resize: vertical; box-sizing: border-box;"
-    />
+    ></textarea>
     <button
       on:click={handleSubmit}
       disabled={isLoading}
