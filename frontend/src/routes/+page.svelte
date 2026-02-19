@@ -63,6 +63,17 @@
     </button>
   </div>
 
+  {#if isLoading}
+    <div style="margin-top: 1.5rem; display: flex; align-items: center; gap: 0.75rem; color: #555;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+        <circle cx="12" cy="12" r="10" stroke="#ddd" stroke-width="2.5" fill="none" />
+        <path d="M12 2 a10 10 0 0 1 10 10" style="transform-origin:center; animation: spin 0.8s linear infinite;" />
+      </svg>
+      Analyzing your service idea against GDPR articles…
+    </div>
+  {/if}
+
   {#if error}
     <div style="margin-top: 1.5rem; padding: 1rem; background: #fff2f0; border: 1px solid #ffccc7; border-radius: 6px; color: #cf1322;">
       {error}
