@@ -1,13 +1,19 @@
-from fastapi import FastAPI, File, UploadFile
-from fastapi.middleware.cors import CORSMiddleware
-from pypdf import PdfReader
-from google import genai
-import shutil
+import logging
 import os
+import time
+
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from google import genai
+
+from database import SessionLocal, GdprChunk, init_db
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-# Allow requests from the frontend (http://localhost:5173)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
@@ -16,55 +22,92 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configure Gemini client from environment variable GEMINI_API_KEY
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
-# Create directory for uploaded files
-UPLOAD_DIR = "uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+@app.on_event("startup")
+def startup():
+    for attempt in range(10):
+        try:
+            init_db()
+            logger.info("Database initialized successfully.")
+            return
+        except Exception as exc:
+            logger.warning("DB not ready (attempt %d/10): %s", attempt + 1, exc)
+            time.sleep(3)
+    logger.error("Could not connect to the database after 10 attempts.")
+
+
+class AdviceRequest(BaseModel):
+    idea: str
+
 
 @app.get("/")
 def read_root():
-    return {"message": "GDPR App Backend is running!"}
+    return {"message": "GDPR Advisor Backend is running!"}
 
-@app.post("/upload")
-async def upload_file(file: UploadFile = File(...)):
-    save_path = os.path.join(UPLOAD_DIR, file.filename)
-    with open(save_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
 
-    # Extract text from PDF
-    text = ""
-    try:
-        reader = PdfReader(save_path)
-        for page in reader.pages:
-            text += page.extract_text() + "\n"
-    except Exception as e:
-        text = f"Error: could not extract text ({str(e)})"
-
-    # Run GDPR analysis with Gemini
-    analysis = ""
+@app.post("/advice")
+async def get_advice(request: AdviceRequest):
     if not gemini_client:
-        analysis = "Error: GEMINI_API_KEY is not set. Check the environment variable."
-    elif text and not text.startswith("Error:"):
-        try:
-            prompt = (
-                "You are a GDPR (General Data Protection Regulation) expert. "
-                "Analyze the following document and identify potential GDPR risks concisely in English:\n\n"
-                + text[:50000]
-            )
-            response = await gemini_client.aio.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=prompt,
-            )
-            analysis = response.text
-        except Exception as e:
-            analysis = f"AI analysis error: {str(e)}"
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY is not set.")
+
+    # 1. Embed the service idea
+    embed_result = gemini_client.models.embed_content(
+        model="gemini-embedding-001",
+        contents=request.idea,
+    )
+    query_embedding = embed_result.embeddings[0].values
+
+    # 2. Retrieve top-5 most relevant GDPR articles via cosine similarity
+    db = SessionLocal()
+    try:
+        relevant = (
+            db.query(GdprChunk)
+            .order_by(GdprChunk.embedding.cosine_distance(query_embedding))
+            .limit(5)
+            .all()
+        )
+    finally:
+        db.close()
+
+    if not relevant:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "GDPR data not found in the database. "
+                "Please run: docker compose exec backend python ingest.py"
+            ),
+        )
+
+    context = "\n\n---\n\n".join(
+        f"{chunk.article}:\n{chunk.text}" for chunk in relevant
+    )
+
+    # 3. Generate GDPR compliance advice
+    prompt = (
+        "You are a GDPR compliance advisor. "
+        "Based only on the GDPR articles provided below, analyze whether "
+        "the described service idea raises any potential compliance issues. "
+        "Be specific about which articles apply and why. "
+        "Always remind the user that this is not legal advice.\n\n"
+        f"RELEVANT GDPR ARTICLES:\n{context}\n\n"
+        f"SERVICE IDEA:\n{request.idea}\n\n"
+        "Structure your response as:\n"
+        "1. Summary (1-2 sentences)\n"
+        "2. Potential GDPR concerns (bullet points)\n"
+        "3. Relevant articles\n"
+        "4. Recommendations\n"
+        "5. Disclaimer"
+    )
+
+    response = await gemini_client.aio.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=prompt,
+    )
 
     return {
-        "filename": file.filename,
-        "status": "success",
-        "text": text,
-        "analysis": analysis,
+        "advice": response.text,
+        "relevant_articles": [c.article for c in relevant],
     }

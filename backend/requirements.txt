@@ -5,5 +5,5 @@ sqlalchemy
 psycopg2-binary
 pgvector
 google-genai
-langchain
 pypdf
+requests

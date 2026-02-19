@@ -1,72 +1,89 @@
 <script lang="ts">
-  let files: FileList;
-  let message = "";
-  let isUploading = false;
-  let extractedText = "";
-  let analysisResult = "";
+  let idea = "";
+  let isLoading = false;
+  let advice = "";
+  let relevantArticles: string[] = [];
+  let error = "";
 
-  async function handleUpload() {
-    if (!files || files.length === 0) {
-      message = "Please select a file.";
+  async function handleSubmit() {
+    if (!idea.trim()) {
+      error = "Please describe your service idea.";
       return;
     }
 
-    isUploading = true;
-    message = "Uploading...";
-    extractedText = "";
-    analysisResult = "";
-
-    const formData = new FormData();
-    formData.append("file", files[0]);
+    isLoading = true;
+    advice = "";
+    relevantArticles = [];
+    error = "";
 
     try {
-      const response = await fetch("http://localhost:8000/upload", {
+      const response = await fetch("http://localhost:8000/advice", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idea }),
       });
 
       if (response.ok) {
         const data = await response.json();
-        message = `Success! Saved as: ${data.filename}`;
-        extractedText = data.text;
-        analysisResult = data.analysis;
+        advice = data.advice;
+        relevantArticles = data.relevant_articles;
       } else {
-        message = "An error occurred.";
+        const data = await response.json();
+        error = data.detail ?? "An error occurred.";
       }
-    } catch (error) {
-      console.error(error);
-      message = "Network error: check that the backend is running.";
+    } catch (err) {
+      console.error(err);
+      error = "Network error: check that the backend is running.";
     } finally {
-      isUploading = false;
+      isLoading = false;
     }
   }
 </script>
 
-<main style="padding: 2rem; font-family: sans-serif;">
-  <h1>GDPR PDF Analyzer</h1>
+<main style="max-width: 800px; margin: 0 auto; padding: 2rem; font-family: sans-serif;">
+  <h1 style="font-size: 1.8rem; margin-bottom: 0.25rem;">GDPR Compliance Advisor</h1>
+  <p style="color: #666; margin-bottom: 2rem;">
+    Describe your service idea and get a GDPR compliance overview based on the official regulation text.
+    <strong>This is not legal advice.</strong>
+  </p>
 
-  <div style="margin-top: 1rem;">
-    <input type="file" accept=".pdf" bind:files />
-    <button on:click={handleUpload} disabled={isUploading}>
-      {isUploading ? "Uploading..." : "Upload"}
+  <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+    <textarea
+      bind:value={idea}
+      placeholder="e.g. An app that collects users' location data in real time and shares it with third-party advertisers..."
+      rows={6}
+      style="width: 100%; padding: 0.75rem; font-size: 1rem; border: 1px solid #ccc; border-radius: 6px; resize: vertical; box-sizing: border-box;"
+    />
+    <button
+      on:click={handleSubmit}
+      disabled={isLoading}
+      style="align-self: flex-start; padding: 0.6rem 1.4rem; font-size: 1rem; background: #1a73e8; color: white; border: none; border-radius: 6px; cursor: pointer; opacity: {isLoading ? 0.6 : 1};"
+    >
+      {isLoading ? "Analyzing..." : "Check GDPR Compliance"}
     </button>
   </div>
 
-  {#if message}
-    <p style="margin-top: 1rem; font-weight: bold; color: #333;">{message}</p>
-  {/if}
-
-  {#if extractedText}
-    <div style="margin-top: 2rem; padding: 1rem; background: #f5f5f5; border-radius: 4px; border: 1px solid #ddd;">
-      <h3>Extracted Text:</h3>
-      <pre style="white-space: pre-wrap; font-family: monospace;">{extractedText}</pre>
+  {#if error}
+    <div style="margin-top: 1.5rem; padding: 1rem; background: #fff2f0; border: 1px solid #ffccc7; border-radius: 6px; color: #cf1322;">
+      {error}
     </div>
   {/if}
 
-  {#if analysisResult}
-    <div style="margin-top: 2rem; padding: 1rem; background: #e6f7ff; border-radius: 4px; border: 1px solid #91d5ff;">
-      <h3 style="color: #0050b3;">AI Analysis Result (GDPR Risks):</h3>
-      <pre style="white-space: pre-wrap; font-family: sans-serif; line-height: 1.6;">{analysisResult}</pre>
+  {#if relevantArticles.length > 0}
+    <div style="margin-top: 1.5rem;">
+      <strong>Articles referenced:</strong>
+      {#each relevantArticles as article}
+        <span style="display: inline-block; margin: 0.25rem; padding: 0.2rem 0.6rem; background: #e6f4ff; border: 1px solid #91caff; border-radius: 12px; font-size: 0.85rem;">
+          {article}
+        </span>
+      {/each}
+    </div>
+  {/if}
+
+  {#if advice}
+    <div style="margin-top: 1.5rem; padding: 1.5rem; background: #f6ffed; border: 1px solid #b7eb8f; border-radius: 6px;">
+      <h3 style="margin-top: 0; color: #237804;">Analysis Result</h3>
+      <pre style="white-space: pre-wrap; font-family: sans-serif; line-height: 1.7; margin: 0;">{advice}</pre>
     </div>
   {/if}
 </main>

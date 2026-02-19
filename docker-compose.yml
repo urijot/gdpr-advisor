@@ -9,6 +9,8 @@ services:
       - .env
     environment:
       - DATABASE_URL=postgresql://user:password@db:5432/gdprdb
+    depends_on:
+      - db
 
   frontend:
     build: ./frontend
