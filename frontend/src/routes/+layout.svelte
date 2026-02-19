@@ -22,8 +22,8 @@
 	:global(html, body) {
 		height: 100%;
 		font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-		background: #212121;
-		color: #ececec;
+		background: #ffffff;
+		color: #111827;
 		overflow: hidden;
 	}
 </style>

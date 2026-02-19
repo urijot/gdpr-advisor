@@ -4,6 +4,11 @@
 
 	marked.use({ breaks: true });
 
+	interface Section {
+		heading: string;
+		content: string;
+	}
+
 	interface Message {
 		role: 'user' | 'assistant';
 		content: string;
@@ -16,9 +21,10 @@
 	let error = '';
 	let chatContainer: HTMLDivElement;
 	let textarea: HTMLTextAreaElement;
+	let expandedSections = new Set<string>();
 
 	const examples = [
-		'An app that tracks users\' location in real time',
+		"An app that tracks users' location in real time",
 		'A healthcare platform storing patient records',
 		'An e-commerce site sharing data with advertisers',
 		'A social network selling user data to third parties'
@@ -28,20 +34,39 @@
 		return marked(text) as string;
 	}
 
+	// Split markdown text into sections by ## headings
+	function parseSections(text: string): Section[] {
+		const parts = text.split(/\n(?=## )/);
+		return parts
+			.map((part) => {
+				const match = part.match(/^## (.+)\n?([\s\S]*)/);
+				if (match) return { heading: match[1].trim(), content: match[2].trim() };
+				return { heading: '', content: part.trim() };
+			})
+			.filter((s) => s.heading || s.content);
+	}
+
+	function isExpanded(msgIdx: number, secIdx: number): boolean {
+		return expandedSections.has(`${msgIdx}-${secIdx}`);
+	}
+
+	function toggleSection(msgIdx: number, secIdx: number) {
+		const key = `${msgIdx}-${secIdx}`;
+		const next = new Set(expandedSections);
+		next.has(key) ? next.delete(key) : next.add(key);
+		expandedSections = next;
+	}
+
 	async function handleSubmit() {
 		if (!idea.trim() || isLoading) return;
 
 		const userMessage = idea.trim();
 		idea = '';
 		error = '';
-
-		if (textarea) {
-			textarea.style.height = 'auto';
-		}
+		if (textarea) textarea.style.height = 'auto';
 
 		messages = [...messages, { role: 'user', content: userMessage }];
 		isLoading = true;
-
 		await tick();
 		scrollToBottom();
 
@@ -56,12 +81,15 @@
 				const data = await response.json();
 				messages = [
 					...messages,
-					{
-						role: 'assistant',
-						content: data.advice,
-						articles: data.relevant_articles
-					}
+					{ role: 'assistant', content: data.advice, articles: data.relevant_articles }
 				];
+				// Auto-expand first section of the new response
+				const msgIdx = messages.length - 1;
+				const sections = parseSections(data.advice);
+				const next = new Set(expandedSections);
+				const firstSectionIdx = sections.findIndex((s) => s.heading);
+				if (firstSectionIdx !== -1) next.add(`${msgIdx}-${firstSectionIdx}`);
+				expandedSections = next;
 			} else {
 				const data = await response.json();
 				error = data.detail ?? 'An error occurred.';
@@ -77,9 +105,7 @@
 	}
 
 	function scrollToBottom() {
-		if (chatContainer) {
-			chatContainer.scrollTop = chatContainer.scrollHeight;
-		}
+		if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
@@ -95,11 +121,7 @@
 			node.style.height = Math.min(node.scrollHeight, 200) + 'px';
 		}
 		node.addEventListener('input', resize);
-		return {
-			destroy() {
-				node.removeEventListener('input', resize);
-			}
-		};
+		return { destroy: () => node.removeEventListener('input', resize) };
 	}
 
 	function useExample(example: string) {
@@ -111,6 +133,7 @@
 		messages = [];
 		error = '';
 		idea = '';
+		expandedSections = new Set();
 	}
 </script>
 
@@ -123,14 +146,14 @@
 					<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
 						<path
 							d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.25C17.25 22.15 21 17.25 21 12V7L12 2z"
-							fill="#3b82f6"
-							opacity="0.25"
-							stroke="#3b82f6"
+							fill="#2563eb"
+							opacity="0.15"
+							stroke="#2563eb"
 							stroke-width="1.5"
 						/>
 						<path
 							d="M9 12l2 2 4-4"
-							stroke="#3b82f6"
+							stroke="#2563eb"
 							stroke-width="1.5"
 							stroke-linecap="round"
 							stroke-linejoin="round"
@@ -180,7 +203,6 @@
 
 	<!-- Main -->
 	<div class="main">
-		<!-- Messages -->
 		<div class="chat-container" bind:this={chatContainer}>
 			{#if messages.length === 0}
 				<!-- Welcome screen -->
@@ -189,14 +211,14 @@
 						<svg width="36" height="36" viewBox="0 0 24 24" fill="none">
 							<path
 								d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.25C17.25 22.15 21 17.25 21 12V7L12 2z"
-								fill="#3b82f6"
-								opacity="0.3"
-								stroke="#3b82f6"
+								fill="#2563eb"
+								opacity="0.15"
+								stroke="#2563eb"
 								stroke-width="1.5"
 							/>
 							<path
 								d="M9 12l2 2 4-4"
-								stroke="#3b82f6"
+								stroke="#2563eb"
 								stroke-width="2"
 								stroke-linecap="round"
 								stroke-linejoin="round"
@@ -229,21 +251,21 @@
 				</div>
 			{:else}
 				<div class="messages-list">
-					{#each messages as message}
+					{#each messages as message, msgIdx}
 						<div class="message {message.role}">
 							{#if message.role === 'assistant'}
 								<div class="avatar ai-avatar">
 									<svg width="16" height="16" viewBox="0 0 24 24" fill="none">
 										<path
 											d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.25C17.25 22.15 21 17.25 21 12V7L12 2z"
-											fill="#3b82f6"
-											opacity="0.3"
-											stroke="#3b82f6"
+											fill="#2563eb"
+											opacity="0.15"
+											stroke="#2563eb"
 											stroke-width="1.5"
 										/>
 										<path
 											d="M9 12l2 2 4-4"
-											stroke="#3b82f6"
+											stroke="#2563eb"
 											stroke-width="1.5"
 											stroke-linecap="round"
 											stroke-linejoin="round"
@@ -258,6 +280,8 @@
 								{#if message.role === 'user'}
 									<p class="user-text">{message.content}</p>
 								{:else}
+									{@const sections = parseSections(message.content)}
+
 									{#if message.articles && message.articles.length > 0}
 										<div class="articles-row">
 											{#each message.articles as article}
@@ -265,7 +289,47 @@
 											{/each}
 										</div>
 									{/if}
-									<div class="prose">{@html renderMarkdown(message.content)}</div>
+
+									{#each sections as section, secIdx}
+										{#if !section.heading}
+											<!-- Intro text: always visible -->
+											<div class="prose intro-prose">
+												{@html renderMarkdown(section.content)}
+											</div>
+										{:else}
+											<!-- Accordion section -->
+											<div class="section-card" class:open={isExpanded(msgIdx, secIdx)}>
+												<button
+													class="section-header"
+													on:click={() => toggleSection(msgIdx, secIdx)}
+												>
+													<div class="section-header-left">
+														<span class="section-dot"></span>
+														<span class="section-title">{section.heading}</span>
+													</div>
+													<svg
+														class="chevron"
+														class:open={isExpanded(msgIdx, secIdx)}
+														width="14"
+														height="14"
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="2.5"
+													>
+														<polyline points="9 18 15 12 9 6" />
+													</svg>
+												</button>
+												{#if isExpanded(msgIdx, secIdx)}
+													<div class="section-body">
+														<div class="prose">
+															{@html renderMarkdown(section.content)}
+														</div>
+													</div>
+												{/if}
+											</div>
+										{/if}
+									{/each}
 								{/if}
 							</div>
 						</div>
@@ -277,14 +341,14 @@
 								<svg width="16" height="16" viewBox="0 0 24 24" fill="none">
 									<path
 										d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.25C17.25 22.15 21 17.25 21 12V7L12 2z"
-										fill="#3b82f6"
-										opacity="0.3"
-										stroke="#3b82f6"
+										fill="#2563eb"
+										opacity="0.15"
+										stroke="#2563eb"
 										stroke-width="1.5"
 									/>
 									<path
 										d="M9 12l2 2 4-4"
-										stroke="#3b82f6"
+										stroke="#2563eb"
 										stroke-width="1.5"
 										stroke-linecap="round"
 										stroke-linejoin="round"
@@ -377,8 +441,8 @@
 	.app {
 		display: flex;
 		height: 100vh;
-		background: #212121;
-		color: #ececec;
+		background: #ffffff;
+		color: #111827;
 		font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 	}
 
@@ -386,8 +450,8 @@
 	.sidebar {
 		width: 240px;
 		flex-shrink: 0;
-		background: #171717;
-		border-right: 1px solid #2a2a2a;
+		background: #f9fafb;
+		border-right: 1px solid #e5e7eb;
 		display: flex;
 		flex-direction: column;
 		padding: 1rem;
@@ -413,8 +477,8 @@
 	.logo-icon {
 		width: 32px;
 		height: 32px;
-		background: rgba(59, 130, 246, 0.1);
-		border: 1px solid rgba(59, 130, 246, 0.2);
+		background: #eff6ff;
+		border: 1px solid #bfdbfe;
 		border-radius: 8px;
 		display: flex;
 		align-items: center;
@@ -425,7 +489,7 @@
 	.logo-text {
 		font-size: 0.95rem;
 		font-weight: 600;
-		color: #ececec;
+		color: #111827;
 		letter-spacing: -0.01em;
 	}
 
@@ -435,10 +499,10 @@
 		gap: 0.5rem;
 		width: 100%;
 		padding: 0.55rem 0.75rem;
-		background: transparent;
-		border: 1px solid #333;
+		background: #ffffff;
+		border: 1px solid #d1d5db;
 		border-radius: 8px;
-		color: #c0c0c0;
+		color: #374151;
 		font-size: 0.8rem;
 		font-family: inherit;
 		cursor: pointer;
@@ -448,9 +512,8 @@
 	}
 
 	.new-chat-btn:hover {
-		background: #242424;
-		border-color: #404040;
-		color: #ececec;
+		background: #f3f4f6;
+		border-color: #9ca3af;
 	}
 
 	.disclaimer-card {
@@ -458,20 +521,20 @@
 		align-items: flex-start;
 		gap: 0.45rem;
 		padding: 0.65rem 0.75rem;
-		background: #1c1c1c;
-		border: 1px solid #2a2a2a;
+		background: #f3f4f6;
+		border: 1px solid #e5e7eb;
 		border-radius: 8px;
 	}
 
 	.disclaimer-icon {
 		flex-shrink: 0;
 		margin-top: 1px;
-		color: #555;
+		color: #9ca3af;
 	}
 
 	.disclaimer-card p {
 		font-size: 0.72rem;
-		color: #666;
+		color: #6b7280;
 		line-height: 1.5;
 	}
 
@@ -495,7 +558,7 @@
 	}
 
 	.chat-container::-webkit-scrollbar-thumb {
-		background: #333;
+		background: #d1d5db;
 		border-radius: 3px;
 	}
 
@@ -513,8 +576,8 @@
 	.welcome-icon {
 		width: 60px;
 		height: 60px;
-		background: rgba(59, 130, 246, 0.1);
-		border: 1px solid rgba(59, 130, 246, 0.2);
+		background: #eff6ff;
+		border: 1px solid #bfdbfe;
 		border-radius: 14px;
 		display: flex;
 		align-items: center;
@@ -527,12 +590,12 @@
 		font-weight: 600;
 		letter-spacing: -0.02em;
 		margin-bottom: 0.6rem;
-		color: #ececec;
+		color: #111827;
 	}
 
 	.welcome > p {
 		font-size: 0.9rem;
-		color: #8e8ea0;
+		color: #6b7280;
 		max-width: 460px;
 		line-height: 1.65;
 		margin-bottom: 2rem;
@@ -552,10 +615,10 @@
 		justify-content: space-between;
 		gap: 0.5rem;
 		padding: 0.75rem 0.9rem;
-		background: #282828;
-		border: 1px solid #333;
+		background: #ffffff;
+		border: 1px solid #e5e7eb;
 		border-radius: 10px;
-		color: #b0b0b0;
+		color: #374151;
 		font-size: 0.8rem;
 		font-family: inherit;
 		text-align: left;
@@ -563,19 +626,17 @@
 		line-height: 1.45;
 		transition:
 			background 0.15s,
-			border-color 0.15s,
-			color 0.15s;
+			border-color 0.15s;
 	}
 
 	.example-card:hover {
-		background: #303030;
-		border-color: #444;
-		color: #ececec;
+		background: #f9fafb;
+		border-color: #9ca3af;
 	}
 
 	.example-card svg {
 		flex-shrink: 0;
-		opacity: 0.4;
+		color: #9ca3af;
 	}
 
 	/* ── Messages ───────────────────────────── */
@@ -587,7 +648,7 @@
 		display: flex;
 		gap: 0.9rem;
 		padding: 0.75rem 1.5rem;
-		max-width: 780px;
+		max-width: 800px;
 		margin: 0 auto;
 		width: 100%;
 		animation: fadeSlideIn 0.2s ease;
@@ -596,7 +657,7 @@
 	@keyframes fadeSlideIn {
 		from {
 			opacity: 0;
-			transform: translateY(6px);
+			transform: translateY(5px);
 		}
 		to {
 			opacity: 1;
@@ -609,8 +670,8 @@
 	}
 
 	.message.user .message-body {
-		background: #2d2d2d;
-		border: 1px solid #383838;
+		background: #f3f4f6;
+		border: 1px solid #e5e7eb;
 		border-radius: 14px 14px 2px 14px;
 		padding: 0.65rem 0.9rem;
 		max-width: 72%;
@@ -633,23 +694,23 @@
 	}
 
 	.ai-avatar {
-		background: rgba(59, 130, 246, 0.1);
-		border: 1px solid rgba(59, 130, 246, 0.2);
+		background: #eff6ff;
+		border: 1px solid #bfdbfe;
 	}
 
 	.user-avatar {
-		background: #3a3a3a;
-		border: 1px solid #444;
+		background: #e5e7eb;
+		border: 1px solid #d1d5db;
 		font-size: 0.65rem;
 		font-weight: 600;
-		color: #c0c0c0;
+		color: #374151;
 		letter-spacing: 0.02em;
 	}
 
 	.user-text {
 		font-size: 0.875rem;
 		line-height: 1.6;
-		color: #d8d8d8;
+		color: #374151;
 	}
 
 	.articles-row {
@@ -660,13 +721,80 @@
 	}
 
 	.article-tag {
-		padding: 0.18rem 0.55rem;
-		background: rgba(59, 130, 246, 0.1);
-		border: 1px solid rgba(59, 130, 246, 0.25);
+		padding: 0.18rem 0.6rem;
+		background: #eff6ff;
+		border: 1px solid #bfdbfe;
 		border-radius: 20px;
 		font-size: 0.72rem;
-		color: #7fb3f5;
+		color: #1d4ed8;
 		font-weight: 500;
+	}
+
+	/* ── Intro prose (no heading) ───────────── */
+	.intro-prose {
+		margin-bottom: 0.85rem;
+	}
+
+	/* ── Accordion sections ─────────────────── */
+	.section-card {
+		border: 1px solid #e5e7eb;
+		border-radius: 10px;
+		margin-bottom: 0.45rem;
+		overflow: hidden;
+		background: #ffffff;
+	}
+
+	.section-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		width: 100%;
+		padding: 0.7rem 0.9rem;
+		background: transparent;
+		border: none;
+		cursor: pointer;
+		text-align: left;
+		font-family: inherit;
+		transition: background 0.12s;
+	}
+
+	.section-header:hover {
+		background: #f9fafb;
+	}
+
+	.section-header-left {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.section-dot {
+		width: 7px;
+		height: 7px;
+		border-radius: 50%;
+		background: #2563eb;
+		flex-shrink: 0;
+	}
+
+	.section-title {
+		font-size: 0.845rem;
+		font-weight: 600;
+		color: #111827;
+	}
+
+	.chevron {
+		color: #9ca3af;
+		transition: transform 0.18s ease;
+		flex-shrink: 0;
+	}
+
+	.chevron.open {
+		transform: rotate(90deg);
+	}
+
+	.section-body {
+		padding: 0.1rem 1rem 1rem;
+		border-top: 1px solid #f3f4f6;
 	}
 
 	/* ── Markdown prose ─────────────────────── */
@@ -674,71 +802,71 @@
 	.prose :global(h2),
 	.prose :global(h3),
 	.prose :global(h4) {
-		color: #e8e8e8;
+		color: #111827;
 		font-weight: 600;
-		margin: 1.1rem 0 0.45rem;
+		margin: 1rem 0 0.4rem;
 		letter-spacing: -0.01em;
 	}
 
 	.prose :global(h1) {
-		font-size: 1.15rem;
+		font-size: 1.1rem;
 	}
 	.prose :global(h2) {
-		font-size: 1.05rem;
+		font-size: 1rem;
 	}
 	.prose :global(h3) {
-		font-size: 0.95rem;
+		font-size: 0.9rem;
 	}
 
 	.prose :global(p) {
 		font-size: 0.875rem;
 		line-height: 1.75;
-		color: #c8c8c8;
-		margin-bottom: 0.7rem;
+		color: #374151;
+		margin-bottom: 0.65rem;
 	}
 
 	.prose :global(ul),
 	.prose :global(ol) {
 		padding-left: 1.35rem;
-		margin-bottom: 0.7rem;
+		margin-bottom: 0.65rem;
 	}
 
 	.prose :global(li) {
 		font-size: 0.875rem;
 		line-height: 1.7;
-		color: #c8c8c8;
+		color: #374151;
 		margin-bottom: 0.3rem;
 	}
 
 	.prose :global(strong) {
-		color: #e8e8e8;
+		color: #111827;
 		font-weight: 600;
 	}
 
 	.prose :global(em) {
-		color: #b0b0b0;
+		color: #6b7280;
 	}
 
 	.prose :global(code) {
-		background: #2a2a2a;
-		border: 1px solid #383838;
+		background: #f3f4f6;
+		border: 1px solid #e5e7eb;
 		padding: 0.15rem 0.4rem;
 		border-radius: 4px;
 		font-size: 0.82em;
-		color: #7fb3f5;
+		color: #1d4ed8;
 	}
 
 	.prose :global(blockquote) {
-		border-left: 3px solid #3b82f6;
+		border-left: 3px solid #2563eb;
 		padding-left: 0.9rem;
 		margin: 0.75rem 0;
-		color: #999;
+		color: #6b7280;
 		font-style: italic;
 	}
 
 	.prose :global(hr) {
 		border: none;
-		border-top: 1px solid #333;
+		border-top: 1px solid #e5e7eb;
 		margin: 1rem 0;
 	}
 
@@ -747,13 +875,13 @@
 		display: flex;
 		gap: 4px;
 		align-items: center;
-		padding: 0.4rem 0 0.25rem;
+		padding: 0.4rem 0 0.2rem;
 	}
 
 	.typing-dots span {
 		width: 6px;
 		height: 6px;
-		background: #4a4a4a;
+		background: #d1d5db;
 		border-radius: 50%;
 		animation: typingBounce 1.3s ease infinite;
 	}
@@ -770,17 +898,17 @@
 		60%,
 		100% {
 			transform: translateY(0);
-			background: #4a4a4a;
+			background: #d1d5db;
 		}
 		30% {
 			transform: translateY(-5px);
-			background: #7a7a7a;
+			background: #9ca3af;
 		}
 	}
 
 	.analyzing-text {
 		font-size: 0.78rem;
-		color: #555;
+		color: #9ca3af;
 		margin-top: 0.2rem;
 	}
 
@@ -790,9 +918,9 @@
 		align-items: center;
 		gap: 0.5rem;
 		padding: 0.65rem 1.25rem;
-		background: rgba(239, 68, 68, 0.08);
-		border-top: 1px solid rgba(239, 68, 68, 0.2);
-		color: #f87171;
+		background: #fef2f2;
+		border-top: 1px solid #fecaca;
+		color: #dc2626;
 		font-size: 0.825rem;
 	}
 
@@ -800,7 +928,7 @@
 		margin-left: auto;
 		background: transparent;
 		border: none;
-		color: #f87171;
+		color: #dc2626;
 		cursor: pointer;
 		font-size: 0.8rem;
 		padding: 0.2rem 0.35rem;
@@ -817,32 +945,33 @@
 	/* ── Input area ─────────────────────────── */
 	.input-area {
 		padding: 0.75rem 1.25rem 1rem;
-		background: #212121;
-		border-top: 1px solid #2a2a2a;
+		background: #ffffff;
+		border-top: 1px solid #e5e7eb;
 	}
 
 	.input-box {
 		display: flex;
 		align-items: flex-end;
 		gap: 0.5rem;
-		background: #2a2a2a;
-		border: 1px solid #383838;
+		background: #ffffff;
+		border: 1px solid #d1d5db;
 		border-radius: 12px;
 		padding: 0.5rem 0.5rem 0.5rem 1rem;
-		max-width: 780px;
+		max-width: 800px;
 		margin: 0 auto;
 		transition: border-color 0.15s;
 	}
 
 	.input-box:focus-within {
-		border-color: rgba(59, 130, 246, 0.45);
+		border-color: #93c5fd;
+		box-shadow: 0 0 0 3px rgba(147, 197, 253, 0.2);
 	}
 
 	textarea {
 		flex: 1;
 		background: transparent;
 		border: none;
-		color: #ececec;
+		color: #111827;
 		font-size: 0.875rem;
 		font-family: inherit;
 		line-height: 1.55;
@@ -855,17 +984,17 @@
 	}
 
 	textarea::placeholder {
-		color: #555;
+		color: #9ca3af;
 	}
 
 	textarea:disabled {
-		opacity: 0.45;
+		opacity: 0.5;
 	}
 
 	.send-btn {
 		width: 34px;
 		height: 34px;
-		background: #3b82f6;
+		background: #2563eb;
 		border: none;
 		border-radius: 8px;
 		color: white;
@@ -874,19 +1003,16 @@
 		align-items: center;
 		justify-content: center;
 		flex-shrink: 0;
-		transition:
-			background 0.15s,
-			opacity 0.15s;
+		transition: background 0.15s;
 	}
 
 	.send-btn:hover:not(:disabled) {
-		background: #2563eb;
+		background: #1d4ed8;
 	}
 
 	.send-btn:disabled {
-		background: #2a2a2a;
-		color: #444;
-		border: 1px solid #333;
+		background: #e5e7eb;
+		color: #9ca3af;
 		cursor: not-allowed;
 	}
 
@@ -903,9 +1029,9 @@
 	.input-hint {
 		text-align: center;
 		font-size: 0.7rem;
-		color: #444;
+		color: #9ca3af;
 		margin-top: 0.5rem;
-		max-width: 780px;
+		max-width: 800px;
 		margin-left: auto;
 		margin-right: auto;
 	}
