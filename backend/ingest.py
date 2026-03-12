@@ -93,7 +93,10 @@ def main():
                         break
                     except Exception as e:
                         msg = str(e)
-                        if "429" in msg or "RESOURCE_EXHAUSTED" in msg:
+                        if "503" in msg or "UNAVAILABLE" in msg:
+                            print(f"    Service unavailable. Waiting 10s...")
+                            time.sleep(10)
+                        elif "429" in msg or "RESOURCE_EXHAUSTED" in msg:
                             import re as _re
                             wait_match = _re.search(r"retry in (\d+)", msg, _re.IGNORECASE)
                             wait_sec = int(wait_match.group(1)) + 5 if wait_match else 65
