@@ -1,0 +1,10 @@
+# Used only by Railway builds (context = repo root).
+# Local docker-compose builds use backend/ and frontend/ contexts, not this file.
+**/node_modules
+**/__pycache__
+**/*.pyc
+**/.env
+**/.svelte-kit
+frontend/build
+backend/uploads
+.git
