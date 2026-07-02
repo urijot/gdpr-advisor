@@ -14,9 +14,18 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
+# Allowed frontend origins. Defaults to local dev; in production set
+# FRONTEND_ORIGIN to the deployed frontend URL (comma-separated for multiple).
+_default_origins = "http://localhost:5173"
+allowed_origins = [
+    o.strip()
+    for o in os.environ.get("FRONTEND_ORIGIN", _default_origins).split(",")
+    if o.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=allowed_origins,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],

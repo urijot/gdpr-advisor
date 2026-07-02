@@ -1,0 +1,11 @@
+# Production image for Railway.
+# Unlike the dev Dockerfile (which relies on a docker-compose volume mount),
+# this copies the application code into the image and binds to $PORT.
+FROM python:3.11-slim
+RUN apt-get update && apt-get install -y build-essential libpq-dev poppler-utils tesseract-ocr && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
+# Railway injects PORT; fall back to 8000 for local `docker build/run` tests.
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]

@@ -1,0 +1,10 @@
+# Production image for Railway (dev-server mode — minimal change from local).
+# Copies the app code (the dev Dockerfile relies on a volume mount instead)
+# and runs the Vite dev server bound to $PORT.
+FROM node:20-slim
+WORKDIR /app
+COPY package.json package-lock.json* ./
+RUN npm install
+COPY . .
+# Railway injects PORT; fall back to 5173 for local `docker build/run` tests.
+CMD ["sh", "-c", "npm run dev -- --host 0.0.0.0 --port ${PORT:-5173}"]

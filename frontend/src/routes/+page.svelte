@@ -1,6 +1,10 @@
 <script lang="ts">
 	import { marked } from 'marked';
 	import { tick } from 'svelte';
+	import { env } from '$env/dynamic/public';
+
+	// Configurable backend URL. Defaults to local dev so nothing changes locally.
+	const API_URL = env.PUBLIC_API_URL || 'http://localhost:8000';
 
 	let hasConsented = false;
 
@@ -73,7 +77,7 @@
 		scrollToBottom();
 
 		try {
-			const response = await fetch('http://localhost:8000/advice', {
+			const response = await fetch(`${API_URL}/advice`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ idea: userMessage })
