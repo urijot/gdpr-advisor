@@ -1,5 +1,7 @@
 # GDPR Advisor
 
+**English** | [日本語](README.ja.md)
+
 🔗 **Live demo:** https://gdpr-advisor.up.railway.app
 
 A RAG-based web application that analyzes service ideas for GDPR compliance using the official GDPR regulation text as its knowledge base.
