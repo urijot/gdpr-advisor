@@ -1,4 +1,4 @@
-# GDPR コンプライアンス・アドバイザー
+# GDPR アドバイザー
 
 [English](README.md) | **日本語**
 
