@@ -1,4 +1,4 @@
-# GDPR Compliance Advisor
+# GDPR Advisor
 
 🔗 **Live demo:** https://gdpr-advisor.up.railway.app
 
